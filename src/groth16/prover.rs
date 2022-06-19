@@ -131,6 +131,12 @@ pub struct PreparedProver<E: Engine>{
     assignment: ProvingAssignment<E>,
 }
 
+impl<E: Engine> PreparedProver<E> {
+    pub fn get_public_inputs(&self) -> Vec<E::Fr> {
+        self.assignment.clone().input_assignment
+    }
+}
+
 #[derive(Clone)]
 struct ProvingAssignment<E: Engine> {
     // Density of queries
