@@ -3,7 +3,7 @@ use crate::pairing::{Engine};
 
 use crate::SynthesisError;
 
-use super::cs::{PlonkConstraintSystemParams, StateVariablesSet, TraceStepCoefficients};
+use super::cs::{PlonkConstraintSystemParams, StateVariablesSet, TraceStepCoefficients, PlonkCsWidth4WithNextStepParams, PlonkCsWidth3WithNextStepParams};
 use crate::plonk::cs::gates::Variable as PlonkVariable;
 use crate::plonk::cs::gates::Index as PlonkIndex;
 
@@ -2063,23 +2063,121 @@ impl<'a, E:Engine, P: PlonkConstraintSystemParams<E>, C: crate::Circuit<E>> Adap
     }
 }
 
-impl<'a, E: Engine, P: PlonkConstraintSystemParams<E>, C: crate::Circuit<E>> PlonkCircuit<E, P> for AdaptorCircuit<'a, E, P, C> {
-    fn synthesize<CS: PlonkConstraintSystem<E, P>>(&self, cs: &mut CS) -> Result<(), SynthesisError> {
-        let mut adaptor = Adaptor::<E, P, CS> {
-            cs: cs,
+impl<'a, E: Engine, C: crate::Circuit<E>> PlonkCircuit<E, PlonkCsWidth3WithNextStepParams> for AdaptorCircuit<'a, E, PlonkCsWidth3WithNextStepParams, C> {
+    fn synthesize<CS: PlonkConstraintSystem<E, PlonkCsWidth3WithNextStepParams>>(&self, cs: &mut CS) -> Result<(), SynthesisError> {
+        let mut adaptor = Adaptor::<E, PlonkCsWidth3WithNextStepParams, CS> {
+            cs,
             hints: self.hints,
             current_constraint_index: 0,
             current_hint_index: 0,
             scratch: HashSet::with_capacity((E::Fr::NUM_BITS * 2) as usize),
             deduplication_scratch: HashMap::with_capacity((E::Fr::NUM_BITS * 2) as usize),
-            transpilation_scratch_space: Some(TranspilationScratchSpace::new(P::STATE_WIDTH * 2)),
+            transpilation_scratch_space: Some(TranspilationScratchSpace::new(<PlonkCsWidth3WithNextStepParams as PlonkConstraintSystemParams<E>>::STATE_WIDTH * 2)),
             _marker_e: std::marker::PhantomData,
             _marker_p: std::marker::PhantomData
         };
 
         let c = self.circuit.replace(None).expect("Must replace a circuit out from cell");
 
-        c.synthesize(&mut adaptor)
+        c.synthesize(&mut adaptor)?;
+
+        Ok(())
+    }
+}
+
+impl<'a, E: Engine, C: crate::Circuit<E>> PlonkCircuit<E, PlonkCsWidth4WithNextStepParams> for AdaptorCircuit<'a, E, PlonkCsWidth4WithNextStepParams, C> {
+    fn synthesize<CS: PlonkConstraintSystem<E, PlonkCsWidth4WithNextStepParams>>(&self, cs: &mut CS) -> Result<(), SynthesisError> {
+        dbg!(self.hints.len());
+
+        let mut adaptor = Adaptor::<E, PlonkCsWidth4WithNextStepParams, CS> {
+            cs,
+            hints: self.hints,
+            current_constraint_index: 0,
+            current_hint_index: 0,
+            scratch: HashSet::with_capacity((E::Fr::NUM_BITS * 2) as usize),
+            deduplication_scratch: HashMap::with_capacity((E::Fr::NUM_BITS * 2) as usize),
+            transpilation_scratch_space: Some(TranspilationScratchSpace::new(<PlonkCsWidth4WithNextStepParams as PlonkConstraintSystemParams<E>>::STATE_WIDTH * 2)),
+            _marker_e: std::marker::PhantomData,
+            _marker_p: std::marker::PhantomData
+        };
+
+        let c = self.circuit.replace(None).expect("Must replace a circuit out from cell");
+
+        c.synthesize(&mut adaptor)?;
+
+        dbg!(adaptor.hints.len());
+        dbg!(adaptor.current_constraint_index);
+        dbg!(adaptor.current_hint_index);
+
+        // let one = E::Fr::one();
+        // let mut negative_one = one;
+        // negative_one.negate();
+        // let zero = E::Fr::zero();
+
+        // let mut two = one;
+        // two.double();
+
+        // let mut negative_two = negative_one;
+        // negative_two.double();
+
+        // let zero_var = adaptor.alloc(|| "allocate zero", || {
+        //     Ok(zero)
+        // })?;
+
+        // let one_var = adaptor.alloc(|| "allocate one", || {
+        //     Ok(one)
+        // })?;
+
+        // let negative_one_var = adaptor.alloc(|| "allocate negative one", || {
+        //     Ok(negative_one)
+        // })?;
+
+        // let two_var = adaptor.alloc(|| "allocate two", || {
+        //     Ok(two)
+        // })?;
+
+        // let negative_two_var = adaptor.alloc(|| "allocate negative two", || {
+        //     Ok(negative_two)
+        // })?;
+
+        // adaptor.enforce(
+        //     || "fill unused selector",
+        //     |lc| lc + negative_two_var + negative_one_var + zero_var + one_var + two_var,
+        //     |lc| lc + one_var,
+        //     |lc| lc + negative_two_var + negative_one_var + zero_var + one_var + two_var
+        // );
+
+        // // fill in constant, c and d_next selectors
+        // // 2 - const(1) - d_next = 0;
+        // let state_variables = [adaptor.cs.get_dummy_variable(), adaptor.cs.get_dummy_variable(), one_var, adaptor.cs.get_dummy_variable()];
+        // let this_step_coeffs = [zero, zero, two, zero, zero, negative_one];
+        // let next_step_coeffs = [negative_one];
+
+        // adaptor.cs.new_gate(state_variables, this_step_coeffs, next_step_coeffs)?;
+        // adaptor.current_constraint_index += 1;
+        // adaptor.current_hint_index += 1;
+
+        // // also fill d selector
+        // // 1 * 1 = 1 * 1
+        // let state_variables = [one_var, adaptor.cs.get_dummy_variable(), adaptor.cs.get_dummy_variable(), one_var];
+        // let this_step_coeffs = [one, zero, zero, negative_one, zero, zero];
+        // let next_step_coeffs = [zero];
+
+        // adaptor.cs.new_gate(state_variables, this_step_coeffs, next_step_coeffs)?;
+        // adaptor.current_constraint_index += 1;
+        // adaptor.current_hint_index += 1;
+
+        // // also fill multiplicative selector
+        // // 0 * 1 = 0
+        // let state_variables = [zero_var, one_var, adaptor.cs.get_dummy_variable(), adaptor.cs.get_dummy_variable()];
+        // let this_step_coeffs = [zero, zero, zero, zero, one, zero];
+        // let next_step_coeffs = [zero];
+
+        // adaptor.cs.new_gate(state_variables, this_step_coeffs, next_step_coeffs)?;
+        // adaptor.current_constraint_index += 1;
+        // adaptor.current_hint_index += 1;
+
+        Ok(())
     }
 }
 
